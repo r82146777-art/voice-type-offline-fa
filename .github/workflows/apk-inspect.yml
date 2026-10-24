@@ -21,7 +21,7 @@ jobs:
       - name: Download the user's original APK from shared Drive file
         run: |
           mkdir -p work
-          ~/.local/bin/gdown --fuzzy "https://drive.google.com/file/d/1oxDIGKYf594agB7ey3h9D3aM9EiYbkD5/view?usp=drivesdk" -O work/original.apk
+          ~/.local/bin/gdown "1oxDIGKYf594agB7ey3h9D3aM9EiYbkD5" -O work/original.apk
           test -s work/original.apk
           file work/original.apk
           unzip -t work/original.apk
