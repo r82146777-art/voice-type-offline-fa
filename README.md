@@ -20,3 +20,8 @@
 ## ساخت APK
 
 مدل `model-fa.zip` را از سورس اصلی در `app/src/main/assets/` قرار دهید و با Android Studio یا `./gradlew assembleRelease` بسازید.
+
+
+## APK inspection/build pipeline
+
+GitHub Actions workflow: `.github/workflows/apk-inspect.yml`. It downloads the shared APK, decodes it with apktool, attempts a baseline rebuild/signing, and publishes inspection artifacts. This is a tooling/bootstrap step only; it does not yet implement the requested speech-recognition, duplicate-input, keyboard-switching, or bundled natural TTS changes.
