@@ -1,0 +1,63 @@
+name: Inspect and rebuild supplied OfflineType APK
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/apk-inspect.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  inspect-and-rebuild:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 45
+    steps:
+      - name: Install Android reverse-engineering tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y apktool apksigner zip unzip default-jdk python3-pip
+          python3 -m pip install --user gdown
+      - name: Download the user's original APK from shared Drive file
+        run: |
+          mkdir -p work
+          ~/.local/bin/gdown --fuzzy "https://drive.google.com/file/d/1oxDIGKYf594agB7ey3h9D3aM9EiYbkD5/view?usp=drivesdk" -O work/original.apk
+          test -s work/original.apk
+          file work/original.apk
+          unzip -t work/original.apk
+      - name: Decode APK and inventory speech assets
+        run: |
+          apktool d -f work/original.apk -o work/decoded
+          mkdir -p work/report
+          {
+            echo "Original APK SHA256:"
+            sha256sum work/original.apk
+            echo
+            echo "Package metadata:"
+            aapt dump badging work/original.apk 2>/dev/null || true
+            echo
+            echo "Speech-related files:"
+            find work/decoded/assets work/decoded/lib -type f 2>/dev/null | grep -Ei 'sherpa|onnx|asr|tts|voice|model|token|vad' || true
+          } > work/report/inspection.txt
+      - name: Rebuild and sign a baseline APK (no feature changes yet)
+        run: |
+          apktool b work/decoded -o work/unsigned-baseline.apk
+          keytool -genkeypair -v -keystore work/test.keystore -alias offline-type             -keyalg RSA -keysize 2048 -validity 10000             -storepass android -keypass android             -dname "CN=OfflineType Build,O=Local Build,C=DE"
+          apksigner sign --ks work/test.keystore --ks-key-alias offline-type             --ks-pass pass:android --key-pass pass:android             --out work/offline-type-baseline-rebuilt.apk work/unsigned-baseline.apk
+          apksigner verify --verbose work/offline-type-baseline-rebuilt.apk
+          sha256sum work/offline-type-baseline-rebuilt.apk >> work/report/inspection.txt
+      - name: Package decoded sources for analysis
+        run: |
+          zip -qr work/decoded-source.zip work/decoded
+      - name: Upload inspection and baseline build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: offline-type-apk-inspection-baseline
+          path: |
+            work/report/inspection.txt
+            work/decoded-source.zip
+            work/offline-type-baseline-rebuilt.apk
+          if-no-files-found: error
+          retention-days: 14
