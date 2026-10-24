@@ -3,8 +3,6 @@ name: Inspect and rebuild supplied OfflineType APK
 on:
   push:
     branches: [main]
-    paths:
-      - ".github/workflows/apk-inspect.yml"
   workflow_dispatch:
 
 permissions:
