@@ -35,11 +35,11 @@ jobs:
           unzip -Z1 work/original.apk > work/report/archive-entries.txt
           grep -qx 'AndroidManifest.xml' work/report/archive-entries.txt || {
             echo "ERROR: Downloaded file is not an APK: AndroidManifest.xml is missing at the archive root."
-            echo "The previous Google Drive URL returned an extracted-source ZIP, not the original APK."
+            echo "A ZIP of extracted sources is not the original APK."
             exit 2
           }
-          grep -Eq '(^|/)classes([0-9]+)?\.dex$' work/report/archive-entries.txt || {
-            echo "ERROR: Downloaded archive has no DEX bytecode; refusing to treat it as an APK."
+          grep -Eq '^classes([0-9]+)?\.dex$' work/report/archive-entries.txt || {
+            echo "ERROR: APK has no root DEX bytecode; refusing to continue."
             exit 2
           }
           sha256sum work/original.apk | tee work/report/original-sha256.txt
@@ -59,7 +59,33 @@ jobs:
             echo "Speech-related files:"
             find work/decoded/assets work/decoded/lib -type f 2>/dev/null | grep -Ei 'sherpa|onnx|asr|tts|voice|model|token|vad' || true
           } > work/report/inspection.txt
-      - name: Rebuild and sign a baseline APK (feature edits are a separate step)
+      - name: Export actual app classes and component declarations
+        run: |
+          mkdir -p work/report/app-smali
+          find work/decoded -type f -path '*/ir/offline/voicetype/*.smali' -print | sort > work/report/app-class-list.txt
+          if ! grep -q '/AsrEngine.smali$' work/report/app-class-list.txt; then
+            echo "ERROR: AsrEngine.smali was not recovered from the original APK; do not apply guessed patches."
+            exit 3
+          fi
+          if ! grep -q '/VoiceImeService.smali$' work/report/app-class-list.txt; then
+            echo "ERROR: VoiceImeService.smali was not recovered from the original APK; do not apply guessed patches."
+            exit 3
+          fi
+          while IFS= read -r f; do
+            rel="${f#work/decoded/}"
+            mkdir -p "work/report/app-smali/$(dirname "$rel")"
+            cp "$f" "work/report/app-smali/$rel"
+          done < work/report/app-class-list.txt
+          cp work/decoded/AndroidManifest.xml work/report/AndroidManifest.xml
+          mkdir -p work/report/res-xml work/report/keyboard-layout
+          cp -r work/decoded/res/xml/. work/report/res-xml/ 2>/dev/null || true
+          cp work/decoded/res/layout/keyboard.xml work/report/keyboard-layout/ 2>/dev/null || true
+          {
+            echo "App-specific smali files: $(wc -l < work/report/app-class-list.txt)"
+            echo "Priority classes:"
+            grep -E '/(AsrEngine|VoiceImeService|SpeechListener|ModelManager|OfflineRecognitionService|MainActivity)\.smali$' work/report/app-class-list.txt || true
+          } >> work/report/inspection.txt
+      - name: Rebuild and sign an unmodified baseline for comparison
         run: |
           apktool b work/decoded -o work/unsigned-baseline.apk
           keytool -genkeypair -v -keystore work/test.keystore -alias offline-type \
@@ -71,15 +97,18 @@ jobs:
             --out work/offline-type-baseline-rebuilt.apk work/unsigned-baseline.apk
           apksigner verify --verbose work/offline-type-baseline-rebuilt.apk
           sha256sum work/offline-type-baseline-rebuilt.apk >> work/report/inspection.txt
-      - name: Package decoded sources for analysis
-        run: zip -qr work/decoded-source.zip work/decoded
-      - name: Upload inspection and baseline build artifacts
+      - name: Package decoded source and app-specific classes
+        run: |
+          zip -qr work/decoded-source.zip work/decoded
+          zip -qr work/app-specific-smali.zip work/report/app-smali work/report/app-class-list.txt
+      - name: Upload inspection, recovered classes, and baseline build
         uses: actions/upload-artifact@v4
         with:
-          name: offline-type-apk-inspection-baseline
+          name: offline-type-apk-recovery-baseline
           path: |
             work/report/
             work/decoded-source.zip
+            work/app-specific-smali.zip
             work/offline-type-baseline-rebuilt.apk
           if-no-files-found: error
           retention-days: 14
