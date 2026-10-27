@@ -1,9 +1,12 @@
 name: Inspect and rebuild supplied OfflineType APK
 
 on:
-  push:
-    branches: [main]
   workflow_dispatch:
+    inputs:
+      apk_download_url:
+        description: "Direct HTTPS download URL for the actual APK file (not a ZIP of extracted sources)"
+        required: true
+        type: string
 
 permissions:
   contents: read
@@ -11,50 +14,71 @@ permissions:
 jobs:
   inspect-and-rebuild:
     runs-on: ubuntu-22.04
-    timeout-minutes: 45
+    timeout-minutes: 60
     steps:
-      - name: Install Android reverse-engineering tools
+      - name: Install Android build tools
         run: |
           sudo apt-get update
-          sudo apt-get install -y apktool apksigner zip unzip default-jdk python3-pip
-          python3 -m pip install --user gdown
-      - name: Download the user's original APK from shared Drive file
+          sudo apt-get install -y apksigner zip unzip default-jdk curl aapt
+          curl -fL --retry 3 "https://github.com/iBotPeaches/Apktool/releases/download/v2.11.1/apktool_2.11.1.jar" -o /usr/local/lib/apktool.jar
+          printf '#!/bin/sh\nexec java -jar /usr/local/lib/apktool.jar "$@"\n' | sudo tee /usr/local/bin/apktool >/dev/null
+          sudo chmod +x /usr/local/bin/apktool
+      - name: Download and validate the actual APK
+        env:
+          APK_URL: ${{ inputs.apk_download_url }}
         run: |
-          mkdir -p work
-          ~/.local/bin/gdown "1oxDIGKYf594agB7ey3h9D3aM9EiYbkD5" -O work/original.apk
+          mkdir -p work/report
+          curl -fL --retry 3 --retry-delay 2 "$APK_URL" -o work/original.apk
           test -s work/original.apk
-          file work/original.apk
-          unzip -t work/original.apk
+          file work/original.apk | tee work/report/file-type.txt
+          unzip -t work/original.apk >/dev/null
+          unzip -Z1 work/original.apk > work/report/archive-entries.txt
+          grep -qx 'AndroidManifest.xml' work/report/archive-entries.txt || {
+            echo "ERROR: Downloaded file is not an APK: AndroidManifest.xml is missing at the archive root."
+            echo "The previous Google Drive URL returned an extracted-source ZIP, not the original APK."
+            exit 2
+          }
+          grep -Eq '(^|/)classes([0-9]+)?\.dex$' work/report/archive-entries.txt || {
+            echo "ERROR: Downloaded archive has no DEX bytecode; refusing to treat it as an APK."
+            exit 2
+          }
+          sha256sum work/original.apk | tee work/report/original-sha256.txt
+          aapt dump badging work/original.apk > work/report/package-metadata.txt
       - name: Decode APK and inventory speech assets
         run: |
           apktool d -f work/original.apk -o work/decoded
-          mkdir -p work/report
+          test -s work/decoded/AndroidManifest.xml
+          test -s work/decoded/apktool.yml
           {
             echo "Original APK SHA256:"
-            sha256sum work/original.apk
+            cat work/report/original-sha256.txt
             echo
             echo "Package metadata:"
-            aapt dump badging work/original.apk 2>/dev/null || true
+            cat work/report/package-metadata.txt
             echo
             echo "Speech-related files:"
             find work/decoded/assets work/decoded/lib -type f 2>/dev/null | grep -Ei 'sherpa|onnx|asr|tts|voice|model|token|vad' || true
           } > work/report/inspection.txt
-      - name: Rebuild and sign a baseline APK (no feature changes yet)
+      - name: Rebuild and sign a baseline APK (feature edits are a separate step)
         run: |
           apktool b work/decoded -o work/unsigned-baseline.apk
-          keytool -genkeypair -v -keystore work/test.keystore -alias offline-type             -keyalg RSA -keysize 2048 -validity 10000             -storepass android -keypass android             -dname "CN=OfflineType Build,O=Local Build,C=DE"
-          apksigner sign --ks work/test.keystore --ks-key-alias offline-type             --ks-pass pass:android --key-pass pass:android             --out work/offline-type-baseline-rebuilt.apk work/unsigned-baseline.apk
+          keytool -genkeypair -v -keystore work/test.keystore -alias offline-type \
+            -keyalg RSA -keysize 2048 -validity 10000 \
+            -storepass android -keypass android \
+            -dname "CN=OfflineType Build,O=Local Build,C=DE"
+          apksigner sign --min-sdk-version 23 --ks work/test.keystore --ks-key-alias offline-type \
+            --ks-pass pass:android --key-pass pass:android \
+            --out work/offline-type-baseline-rebuilt.apk work/unsigned-baseline.apk
           apksigner verify --verbose work/offline-type-baseline-rebuilt.apk
           sha256sum work/offline-type-baseline-rebuilt.apk >> work/report/inspection.txt
       - name: Package decoded sources for analysis
-        run: |
-          zip -qr work/decoded-source.zip work/decoded
+        run: zip -qr work/decoded-source.zip work/decoded
       - name: Upload inspection and baseline build artifacts
         uses: actions/upload-artifact@v4
         with:
           name: offline-type-apk-inspection-baseline
           path: |
-            work/report/inspection.txt
+            work/report/
             work/decoded-source.zip
             work/offline-type-baseline-rebuilt.apk
           if-no-files-found: error
