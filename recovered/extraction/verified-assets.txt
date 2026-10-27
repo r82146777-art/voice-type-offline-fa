@@ -1,0 +1,16 @@
+Verified entries from the user-provided APK (archive inventory):
+
+classes.dex
+AndroidManifest.xml (binary Android XML)
+lib/arm64-v8a/libonnxruntime.so
+lib/arm64-v8a/libsherpa-onnx-jni.so
+lib/armeabi-v7a/libonnxruntime.so
+lib/armeabi-v7a/libsherpa-onnx-jni.so
+assets/dict/fa.tsv.gz
+assets/dict/en.tsv.gz
+assets/dict/fa2en.txt
+assets/asr/model.int8v2.onnx.xz
+assets/asr/silero_vad.onnx.xz
+assets/asr/en/ (English model assets)
+
+The APK archive contains 426 entries. classes.dex is 1,346,144 bytes. The APK is approximately 122 MB. This confirms the project includes Sherpa-ONNX/ONNX Runtime assets and Persian/English language data. It does not establish that the original project is Unity-based.
