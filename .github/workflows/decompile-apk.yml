@@ -1,0 +1,55 @@
+name: Decompile Offline Type APK to Java source
+
+on:
+  workflow_dispatch:
+    inputs:
+      apk_download_url:
+        description: "Direct HTTPS URL to the original APK"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  decompile:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download and validate APK
+        env:
+          APK_URL: ${{ inputs.apk_download_url }}
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y unzip file
+          mkdir -p output
+          curl -fL --retry 3 "$APK_URL" -o output/original.apk
+          unzip -t output/original.apk >/dev/null
+          unzip -Z1 output/original.apk > output/archive-entries.txt
+          grep -qx 'AndroidManifest.xml' output/archive-entries.txt
+          grep -Eq '^classes([0-9]+)?\.dex$' output/archive-entries.txt
+          sha256sum output/original.apk | tee output/sha256.txt
+      - name: Install JADX
+        run: |
+          curl -fL --retry 3 https://github.com/skylot/jadx/releases/download/v1.5.1/jadx-1.5.1.zip -o /tmp/jadx.zip
+          sudo mkdir -p /opt/jadx
+          sudo unzip -q /tmp/jadx.zip -d /opt/jadx
+          sudo ln -sf /opt/jadx/bin/jadx /usr/local/bin/jadx
+      - name: Decompile DEX and Android resources
+        run: |
+          jadx --show-bad-code --escape-unicode -d output/decompiled output/original.apk 2>&1 | tee output/jadx.log
+          test -d output/decompiled/sources
+          find output/decompiled/sources -type f -name '*.java' | sort > output/java-files.txt
+          echo "Java source files recovered: $(wc -l < output/java-files.txt)"
+          unzip -Z1 output/original.apk | grep -E '^(assets/(dict|asr)/|lib/.*\.so$)' > output/speech-assets.txt || true
+      - name: Package recovered source and report
+        run: |
+          rm -f output/original.apk
+          zip -qr output/decompiled-source-and-report.zip output
+      - uses: actions/upload-artifact@v4
+        with:
+          name: offline-type-decompiled-source
+          path: output/decompiled-source-and-report.zip
+          if-no-files-found: error
+          retention-days: 14
