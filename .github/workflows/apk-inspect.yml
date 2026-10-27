@@ -88,10 +88,11 @@ jobs:
             --out work/offline-type-baseline-rebuilt.apk work/unsigned-baseline.apk
           apksigner verify --verbose work/offline-type-baseline-rebuilt.apk
           sha256sum work/offline-type-baseline-rebuilt.apk >> work/report/inspection.txt
-      - name: Package decoded source and app-specific classes
+      - name: Package decoded source and recovered class inventory
         run: |
           zip -qr work/decoded-source.zip work/decoded
-          zip -qr work/app-specific-smali.zip work/report/app-smali work/report/app-class-list.txt
+          test -s work/report/all-smali-class-list.txt
+          test -s work/report/inspection.txt
       - name: Upload inspection, recovered classes, and baseline build
         uses: actions/upload-artifact@v4
         with:
@@ -99,7 +100,6 @@ jobs:
           path: |
             work/report/
             work/decoded-source.zip
-            work/app-specific-smali.zip
             work/offline-type-baseline-rebuilt.apk
           if-no-files-found: error
           retention-days: 14
