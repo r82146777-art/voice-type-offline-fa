@@ -1,0 +1,48 @@
+package com.plus9.OSAndroidPlugin;
+
+import android.app.Activity;
+import android.content.Intent;
+import android.net.Uri;
+
+/* Decompiled source recovered from the user-supplied APK. */
+public class AppRate extends Activity {
+    public static void ViewApp(Activity activity, String str) {
+        Intent intent = new Intent("android.intent.action.VIEW");
+        intent.setData(Uri.parse("bazaar://details?id=" + str));
+        intent.setPackage("com.farsitel.bazaar");
+        activity.startActivity(intent);
+    }
+
+    public static void LaunchBazaarComments(Activity activity, String str) {
+        Intent intent = new Intent("android.intent.action.EDIT");
+        intent.setData(Uri.parse("bazaar://details?id=" + str));
+        intent.setPackage("com.farsitel.bazaar");
+        activity.startActivity(intent);
+    }
+
+    public static void MyketViewApp(Activity activity, String str) {
+        Intent intent = new Intent("android.intent.action.VIEW");
+        intent.setData(Uri.parse("myket://application/#Intent;scheme=myket;package=" + str + ";end"));
+        activity.startActivity(intent);
+    }
+
+    public static void LaunchMyketComments(Activity activity, String str) {
+        Intent intent = new Intent("android.intent.action.VIEW");
+        intent.setData(Uri.parse("myket://comment/#Intent;scheme=comment;package=" + str + ";end"));
+        activity.startActivity(intent);
+    }
+
+    public static void IranappsViewApp(Activity activity, String str) {
+        Intent intent = new Intent("android.intent.action.VIEW");
+        intent.setData(Uri.parse("iranapps://app/" + str));
+        intent.setPackage("ir.tgbs.android.iranapp");
+        activity.startActivity(intent);
+    }
+
+    public static void LaunchIranappsComments(Activity activity, String str) {
+        Intent intent = new Intent("android.intent.action.VIEW");
+        intent.setData(Uri.parse("iranapps://app/" + str + "?a=comment&r=4"));
+        intent.setPackage("ir.tgbs.android.iranapp");
+        activity.startActivity(intent);
+    }
+}
