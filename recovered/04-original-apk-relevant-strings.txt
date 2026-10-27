@@ -1,0 +1,42 @@
+Extracted from the DEX strings in the exact uploaded APK (not guessed from the older Vosk project).
+
+## App classes referenced in classes.dex
+
+- ir.offline.voicetype.MainActivity
+- ir.offline.voicetype.VoiceImeService
+- ir.offline.voicetype.OfflineRecognitionService
+- ir.offline.voicetype.AssistService
+- ir.offline.voicetype.AssistSessionService
+- ir.offline.voicetype.AsrEngine
+- ir.offline.voicetype.ModelManager
+- ir.offline.voicetype.SpeechListener
+- ir.offline.voicetype.VoiceRecognizeActivity
+- ir.offline.voicetype.SettingsActivity
+- ir.offline.voicetype.KeyboardSettingsActivity
+- ir.offline.voicetype.AssistantSettingsActivity
+- ir.offline.voicetype.AiSettingsActivity
+- ir.offline.voicetype.SoundSettingsActivity
+- ir.offline.voicetype.SoundEffectsActivity
+- ir.offline.voicetype.WordsActivity
+- ir.offline.voicetype.Dict
+- ir.offline.voicetype.SuggestBar
+
+## Recognition/runtime evidence
+
+- `com.k2fsa.sherpa.onnx` classes are referenced extensively.
+- The DEX references `OfflineSpeechDenoiserConfig` and `OnlineSpeechDenoiserConfig`.
+- The DEX references `VadModelConfig` and `sileroVadModelConfig`.
+- The DEX references offline and online recognizer configuration types, including Whisper, Paraformer, Zipformer, SenseVoice, Moonshine and other sherpa-onnx model families.
+- Actual bundled assets include `assets/asr/model.int8v2.onnx.xz`, `assets/asr/silero_vad.onnx.xz`, and a separate English Moonshine encoder/decoder/token set.
+- Android speech service references include `android.speech.RecognitionService`, `android.speech.action.RECOGNIZE_SPEECH`, and `android.speech.extra.PARTIAL_RESULTS`.
+
+## Android component/resource references
+
+- `res/xml/method.xml` references `ir.offline.voicetype.SettingsActivity`.
+- `res/xml/recognition_service.xml` references `ir.offline.voicetype.AssistantSettingsActivity`.
+- `res/xml/voice_interaction.xml` references `AssistSessionService`, `AssistantSettingsActivity`, and `OfflineRecognitionService`.
+- The original APK has `res/layout/keyboard.xml` (1,300 bytes).
+
+## Why this matters
+
+The APK contains recognizable app-specific classes in DEX, but the previous source archive did not yield their Java/smali source files. It is therefore not enough to edit only the recovered `BuildConfig.java` or framework files. The next technical step is to disassemble the original `classes.dex` correctly and inspect the implementations of `AsrEngine`, `VoiceImeService`, `SpeechListener`, and `ModelManager` before changing behavior.
