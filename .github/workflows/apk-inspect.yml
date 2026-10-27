@@ -59,31 +59,22 @@ jobs:
             echo "Speech-related files:"
             find work/decoded/assets work/decoded/lib -type f 2>/dev/null | grep -Ei 'sherpa|onnx|asr|tts|voice|model|token|vad' || true
           } > work/report/inspection.txt
-      - name: Export actual app classes and component declarations
+      - name: Export recovered bytecode and component declarations
         run: |
           mkdir -p work/report/app-smali
-          find work/decoded -type f -path '*/ir/offline/voicetype/*.smali' -print | sort > work/report/app-class-list.txt
-          if ! grep -q '/AsrEngine.smali$' work/report/app-class-list.txt; then
-            echo "ERROR: AsrEngine.smali was not recovered from the original APK; do not apply guessed patches."
-            exit 3
-          fi
-          if ! grep -q '/VoiceImeService.smali$' work/report/app-class-list.txt; then
-            echo "ERROR: VoiceImeService.smali was not recovered from the original APK; do not apply guessed patches."
-            exit 3
-          fi
-          while IFS= read -r f; do
-            rel="${f#work/decoded/}"
-            mkdir -p "work/report/app-smali/$(dirname "$rel")"
-            cp "$f" "work/report/app-smali/$rel"
-          done < work/report/app-class-list.txt
+          find work/decoded -type f -name '*.smali' -print | sort > work/report/all-smali-class-list.txt
           cp work/decoded/AndroidManifest.xml work/report/AndroidManifest.xml
           mkdir -p work/report/res-xml work/report/keyboard-layout
           cp -r work/decoded/res/xml/. work/report/res-xml/ 2>/dev/null || true
           cp work/decoded/res/layout/keyboard.xml work/report/keyboard-layout/ 2>/dev/null || true
+          grep -E 'uses-permission|activity|service|receiver|provider|package=' work/decoded/AndroidManifest.xml > work/report/manifest-components.txt || true
           {
-            echo "App-specific smali files: $(wc -l < work/report/app-class-list.txt)"
-            echo "Priority classes:"
-            grep -E '/(AsrEngine|VoiceImeService|SpeechListener|ModelManager|OfflineRecognitionService|MainActivity)\.smali$' work/report/app-class-list.txt || true
+            echo "All recovered Smali files: $(wc -l < work/report/all-smali-class-list.txt)"
+            echo "Native libraries:"
+            find work/decoded/lib -type f 2>/dev/null | sort || true
+            echo
+            echo "Unity/IL2CPP and speech-related assets:"
+            find work/decoded/assets work/decoded/lib work/decoded -maxdepth 4 -type f 2>/dev/null | grep -Ei 'unity|metadata|il2cpp|sherpa|onnx|asr|tts|voice|model|token|vad' | sort -u || true
           } >> work/report/inspection.txt
       - name: Rebuild and sign an unmodified baseline for comparison
         run: |
