@@ -1,0 +1,25 @@
+SOURCE INVENTORY — user-supplied Offline Voice Type APK
+Generated from /mnt/data/source-apk/base_source.zip and inspected APK ZIP entries.
+
+Original APK:
+- file: 4_5949663322923081136.apk
+- APK archive has root AndroidManifest.xml and classes.dex
+- Native libraries:
+  - lib/arm64-v8a/libonnxruntime.so
+  - lib/arm64-v8a/libsherpa-onnx-jni.so
+  - lib/armeabi-v7a/libonnxruntime.so
+  - lib/armeabi-v7a/libsherpa-onnx-jni.so
+- ASR model assets in original APK:
+  - assets/asr/model.int8v2.onnx.xz
+  - assets/asr/silero_vad.onnx.xz
+- UI/resource strings include “Offline Voice Type”, “enable_keyboard”, “pick_keyboard”, and “keyboard”.
+- Extracted-source ZIP top-level counts:
+  - sources/: 18,309 files
+  - smali/: 7,357 files
+  - smali_classes2/: 11,492 files
+  - smali_classes3/: 10,155 files
+  - smali_classes4/: 1,041 files
+  - resources/: 943 files
+
+Important limitation:
+The extracted ZIP does not include the original APK's assets/asr model files. It also contains decompiled code and resources, not a ready-to-build Gradle project. Therefore a baseline rebuild from this ZIP alone would be incomplete. Do not claim an APK is rebuilt until the missing assets, manifest, and build process are verified.
